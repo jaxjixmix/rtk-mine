@@ -224,15 +224,19 @@ fn cmd_init(shell: &str, agent: bool, quiet: bool) {
     };
 
     println!("{}", script);
-    let mode = if agent { " (agent mode)" } else { "" };
-    eprintln!(
-        "[rtk-mine] shell integration for {}{} emitted — add to .{}rc or eval directly:",
-        detected, mode, detected
-    );
-    if agent {
-        eprintln!("  eval \"$(rtk-mine init --agent)\"");
-    } else {
-        eprintln!("  eval \"$(rtk-mine init)\"");
+
+    // Status to stderr — suppressed in quiet mode.
+    if !quiet {
+        let mode = if agent { " (agent mode)" } else { "" };
+        eprintln!(
+            "[rtk-mine] shell integration for {}{} emitted — add to .{}rc or eval directly:",
+            detected, mode, detected
+        );
+        if agent {
+            eprintln!("  eval \"$(rtk-mine init --agent)\"");
+        } else {
+            eprintln!("  eval \"$(rtk-mine init)\"");
+        }
     }
 }
 
