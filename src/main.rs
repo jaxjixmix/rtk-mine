@@ -232,10 +232,11 @@ fn cmd_init(shell: &str, agent: bool, quiet: bool) {
             "[rtk-mine] shell integration for {}{} emitted — add to .{}rc or eval directly:",
             detected, mode, detected
         );
+        let quiet_suffix = if quiet { " --quiet" } else { "" };
         if agent {
-            eprintln!("  eval \"$(rtk-mine init --agent)\"");
+            eprintln!("  eval \"$(rtk-mine init --agent{})\"", quiet_suffix);
         } else {
-            eprintln!("  eval \"$(rtk-mine init)\"");
+            eprintln!("  eval \"$(rtk-mine init{}\"", quiet_suffix);
         }
     }
 }

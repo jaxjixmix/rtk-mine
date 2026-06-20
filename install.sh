@@ -109,7 +109,7 @@ if [ "${SKIP_HOOKS:-0}" = "1" ]; then
     info "Skipping shell hooks (SKIP_HOOKS=1)"
 else
     header "Shell integration"
-    HOOK='eval "$(rtk-mine init --agent --quiet)"'
+    HOOK='command -v rtk-mine >/dev/null && eval "$(rtk-mine init --agent --quiet)"'
 
     install_hook() {
         local file="$1"
