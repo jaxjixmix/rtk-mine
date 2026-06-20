@@ -290,7 +290,7 @@ impl Config {
             }
             let default_toml = toml::to_string_pretty(&Config::default())
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            let header = "# rtk-mine configuration\n# See https://github.com/user/rtk-mine for docs\n\n";
+            let header = "# rtk-mine configuration\n# See https://github.com/jaxjixmix/rtk-mine for docs\n\n";
             std::fs::write(&path, format!("{}{}", header, default_toml))?;
             Ok(path.clone())
         })();

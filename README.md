@@ -23,10 +23,10 @@ What makes rtk-mine different:
 
 ```bash
 # Option 1: build from source (requires Rust)
-cargo install --git https://github.com/user/rtk-mine.git
+cargo install --git https://github.com/jaxjixmix/rtk-mine.git
 
 # Option 2: one-liner
-curl -fsSL https://raw.githubusercontent.com/user/rtk-mine/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jaxjixmix/rtk-mine/main/install.sh | bash
 ```
 
 ### Setup
@@ -585,7 +585,7 @@ rtk-mine config show                         # full configuration
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/user/rtk-mine).
+Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/jaxjixmix/rtk-mine).
 
 ### Project Structure
 

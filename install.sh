@@ -5,7 +5,7 @@
 # and installs it to /usr/local/bin (or ~/.local/bin).
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/user/rtk-mine/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jaxjixmix/rtk-mine/main/install.sh | bash
 #
 # Or locally:
 #   ./install.sh
@@ -18,7 +18,7 @@ YELLOW="\033[33m"
 RED="\033[31m"
 RESET="\033[0m"
 
-REPO="user/rtk-mine"
+REPO="jaxjixmix/rtk-mine"
 BINARY="rtk-mine"
 INSTALL_DIR="${RTK_MINE_INSTALL_DIR:-/usr/local/bin}"
 

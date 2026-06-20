@@ -1,12 +1,12 @@
 # CLAUDE.md — rtk-mine integration for Claude Code
 
-This project uses [rtk-mine](https://github.com/user/rtk-mine) to reduce LLM token consumption on dev commands. When rtk-mine is active, command output is filtered and optimized for LLM consumption.
+This project uses [rtk-mine](https://github.com/jaxjixmix/rtk-mine) to reduce LLM token consumption on dev commands. When rtk-mine is active, command output is filtered and optimized for LLM consumption.
 
 ## Quick Setup
 
 ```bash
 # Install (if not already installed)
-cargo install --git https://github.com/user/rtk-mine.git
+cargo install --git https://github.com/jaxjixmix/rtk-mine.git
 
 # Generate default config
 rtk-mine config init
