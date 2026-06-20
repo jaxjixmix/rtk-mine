@@ -63,11 +63,15 @@ eval "$(rtk-mine init --agent --quiet)"
 
 ### CodeWhale
 
-Add to your project's `.codewhale/instructions.md` or user-level setup:
+CodeWhale spawns non-interactive shells that source `~/.zshenv` (not `~/.zshrc`).
+Add the hook to `~/.zshenv` for persistent setup:
 
 ```bash
-eval "$(rtk-mine init --agent --quiet)"
+echo 'eval "$(rtk-mine init --agent --quiet)"' >> ~/.zshenv
 ```
+
+Or for per-project activation, add to `.codewhale/instructions.md` or use direnv
+with the included `.envrc` file (`direnv allow`).
 
 ### GitHub Copilot (in terminal/agent mode)
 
