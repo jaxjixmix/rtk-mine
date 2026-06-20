@@ -141,7 +141,48 @@ else
     fi
 fi
 
-# ── Stage 4: Done ───────────────────────────────────────────────────
+# ── Stage 4: PATH wrappers (Copilot CLI, agents bypassing shell) ────
+
+if [ "${SKIP_WRAPPERS:-0}" != "1" ]; then
+    WRAPPER_DIR="$HOME/.rtk-mine/bin"
+    mkdir -p "$WRAPPER_DIR"
+
+    # Master wrapper — uses argv[0] to determine the real command.
+    cat > "$WRAPPER_DIR/rtk-wrapper" << 'WRAPPER_EOF'
+#!/usr/bin/env bash
+# rtk-mine PATH wrapper — intercepts commands for agents that bypass shell functions.
+# Usage: symlink this as any command name (e.g., ln -s rtk-wrapper ls).
+cmd=$(basename "$0")
+if [ "$cmd" = "rtk-wrapper" ]; then
+    echo "rtk-wrapper: symlink this script as the command you want to proxy." >&2
+    exit 1
+fi
+rtk-mine exec -- "$cmd" "$@"
+WRAPPER_EOF
+    chmod +x "$WRAPPER_DIR/rtk-wrapper"
+
+    # Wrappable commands.
+    CMDS=(ls cat head tail grep rg find git cargo pytest npm npx pnpm yarn go make)
+    for cmd in "${CMDS[@]}"; do
+        if [ ! -e "$WRAPPER_DIR/$cmd" ]; then
+            ln -sf "$WRAPPER_DIR/rtk-wrapper" "$WRAPPER_DIR/$cmd"
+            info "+ wrapper: $WRAPPER_DIR/$cmd"
+        fi
+    done
+
+    # Add to PATH in shell configs (before other entries).
+    for rc in "$HOME/.zshenv" "$HOME/.zshrc"; do
+        if [ -f "$rc" ] && ! grep -qF "$WRAPPER_DIR" "$rc" 2>/dev/null; then
+            # Insert at top so wrappers take priority.
+            sed -i '' "1i\\
+export PATH=\"$WRAPPER_DIR:\$PATH\"
+" "$rc" 2>/dev/null || true
+            info "+ PATH prepend in $rc"
+        fi
+    done
+fi
+
+# ── Stage 5: Done ───────────────────────────────────────────────────
 
 header "Setup complete!"
 echo ""

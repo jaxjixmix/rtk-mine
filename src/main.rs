@@ -71,6 +71,9 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+
+    /// Install PATH-based wrappers for agents that bypass shell functions.
+    WrapperInstall {},
 }
 
 #[derive(Subcommand)]
@@ -137,6 +140,9 @@ fn main() {
             ConfigAction::Show => cmd_config_show(),
             ConfigAction::Path => cmd_config_path(),
         },
+        Commands::WrapperInstall {} => {
+            cmd_wrapper_install();
+        }
     }
 }
 
@@ -757,6 +763,49 @@ fn cmd_config_show() {
 
 fn cmd_config_path() {
     println!("{}", config::config_path().display());
+}
+
+fn cmd_wrapper_install() {
+    let script = r#"#!/usr/bin/env bash
+# rtk-mine PATH wrappers — for agents that bypass shell functions (Copilot CLI, etc.)
+# Run: eval "$(rtk-mine wrapper-install)"   or   pipe to bash.
+
+set -e
+DIR="$HOME/.rtk-mine/bin"
+mkdir -p "$DIR"
+
+# Master wrapper script — uses argv[0] to determine which command to proxy.
+cat > "$DIR/rtk-wrapper" << 'EOF'
+#!/usr/bin/env bash
+cmd=$(basename "$0")
+if [ "$cmd" = "rtk-wrapper" ]; then
+    echo "rtk-wrapper: symlink this as the command you want to proxy." >&2
+    exit 1
+fi
+rtk-mine exec -- "$cmd" "$@"
+EOF
+chmod +x "$DIR/rtk-wrapper"
+
+# Symlink for each wrappable command.
+CMDS=(ls cat head tail grep rg find git cargo pytest npm npx pnpm yarn go make)
+for cmd in "${CMDS[@]}"; do
+    [ -e "$DIR/$cmd" ] || ln -sf "$DIR/rtk-wrapper" "$DIR/$cmd"
+    echo "+ wrapper: $DIR/$cmd"
+done
+
+# Prepend to PATH (add to .zshenv if not already there).
+if ! grep -qF "$DIR" "$HOME/.zshenv" 2>/dev/null; then
+    echo "export PATH=\"$DIR:\$PATH\"" >> "$HOME/.zshenv"
+    echo "+ PATH prepend added to ~/.zshenv"
+fi
+echo ""
+echo "Done. Restart your shell or run: source ~/.zshenv"
+echo "Then: which ls   # should show $DIR/ls"
+"#;
+
+    println!("{}", script);
+    eprintln!("[rtk-mine] PATH wrapper installer emitted — pipe to bash or eval:");
+    eprintln!("  eval \"$(rtk-mine wrapper-install)\"");
 }
 
 // ---- helpers ----
