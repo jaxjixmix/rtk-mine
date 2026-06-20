@@ -152,10 +152,16 @@ pub fn filter_env(env_vars: &[(String, String)], config: &SecurityConfig) -> Vec
         .iter()
         .filter(|(key, _)| {
             let upper = key.to_uppercase();
-            !config
-                .strip_env_vars
-                .iter()
-                .any(|sensitive| upper.contains(&sensitive.to_uppercase()))
+            // Exact match against each sensitive pattern (case-insensitive).
+            // Uses word-boundary check: matches "TOKEN" in "GITHUB_TOKEN"
+            // but not "MY_TOKENIZER".
+            !config.strip_env_vars.iter().any(|sensitive| {
+                let s = sensitive.to_uppercase();
+                upper == s
+                    || upper.starts_with(&format!("{}_", s))
+                    || upper.ends_with(&format!("_{}", s))
+                    || upper.contains(&format!("_{}_", s))
+            })
         })
         .cloned()
         .collect()

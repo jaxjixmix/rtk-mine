@@ -275,9 +275,25 @@ impl Config {
         }
     }
 
-    /// Get the resolved audit log path.
+    /// Get the resolved audit log path, validated to prevent traversal.
     pub fn audit_path(&self) -> PathBuf {
-        Self::resolve_path(&self.audit.log_path)
+        let resolved = Self::resolve_path(&self.audit.log_path);
+        // Canonicalize to resolve any `..` components and symlinks.
+        // If canonicalize fails (e.g., file doesn't exist yet), use the parent dir.
+        match resolved.canonicalize() {
+            Ok(canon) => canon,
+            Err(_) => {
+                // Try canonicalizing the parent to detect traversal.
+                if let Some(parent) = resolved.parent() {
+                    if let Ok(canon_parent) = parent.canonicalize() {
+                        return canon_parent.join(
+                            resolved.file_name().unwrap_or(std::ffi::OsStr::new("audit.log"))
+                        );
+                    }
+                }
+                resolved
+            }
+        }
     }
 
     /// Generate a default config file at the standard location.

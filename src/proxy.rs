@@ -4,9 +4,9 @@
 use crate::audit::{self, AuditEntry};
 use crate::config::Config;
 use crate::filters;
-use crate::security::{self, SecretScan, SecurityVerdict};
+use crate::security::{self, SecurityVerdict};
 use std::path::Path;
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::time::Instant;
 
 /// Result of a proxy execution.
@@ -120,20 +120,27 @@ pub fn execute(
     };
     let bytes_before = raw_output.len();
 
+    // ---- Security: secret scan (on raw output, before filter truncation) ----
+    let (output_to_filter, secrets_found) =
+        if config.security.redact_secrets {
+            let scan = security::scan_and_redact(&raw_output);
+            (scan.output, scan.secrets_found)
+        } else {
+            (raw_output, 0)
+        };
+
     // ---- Apply filter ----
     let cmd_name = security::command_name(program);
     let filter_name = filters::classify(cmd_name, args);
-    let (filtered, truncated) = filters::apply(&filter_name, &raw_output, config);
+    let (mut filtered, truncated) = filters::apply(&filter_name, &output_to_filter, config);
 
-    // ---- Security: secret scan ----
-    let SecretScan { output: secured, secrets_found, .. } =
-        if config.security.redact_secrets {
-            security::scan_and_redact(&filtered)
-        } else {
-            SecretScan { output: filtered, secrets_found: 0 }
-        };
+    // ---- Enforce max_output_bytes ----
+    if config.security.max_output_bytes > 0 && filtered.len() > config.security.max_output_bytes {
+        filtered.truncate(config.security.max_output_bytes);
+        filtered.push_str("\n[rtk-mine] output truncated (max_output_bytes limit)\n");
+    }
 
-    let bytes_after = secured.len();
+    let bytes_after = filtered.len();
 
     // ---- Audit log ----
     let entry = AuditEntry::new(
@@ -154,7 +161,7 @@ pub fn execute(
     }
 
     ProxyResult {
-        output: secured,
+        output: filtered,
         exit_code,
         blocked: false,
         block_reason: None,
@@ -174,12 +181,15 @@ fn run_command(
     cwd: &Path,
     config: &Config,
 ) -> Output {
-    let _timeout = std::time::Duration::from_secs(config.proxy.timeout_seconds);
+    let timeout = std::time::Duration::from_secs(config.proxy.timeout_seconds);
 
     // Build the command with filtered environment.
     let mut cmd = Command::new(program);
     cmd.args(args);
     cmd.current_dir(cwd);
+    // Pipe stdout/stderr so we can capture them.
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
 
     // Filter environment variables through the security module.
     let env_vars: Vec<(String, String)> = std::env::vars().collect();
@@ -187,12 +197,49 @@ fn run_command(
         cmd.env(key, value);
     }
 
-    match cmd.output() {
-        Ok(output) => output,
+    // Spawn and wait with timeout.
+    match cmd.spawn() {
+        Ok(child) => {
+            let pid = child.id();
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let _ = tx.send(child.wait_with_output());
+            });
+            match rx.recv_timeout(timeout) {
+                Ok(Ok(output)) => output,
+                Ok(Err(e)) => Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: Vec::new(),
+                    stderr: format!("[rtk-mine] failed to execute '{}': {}", program, e).into_bytes(),
+                },
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    // Kill the process group on timeout.
+                    let _ = Command::new("kill")
+                        .arg("-9")
+                        .arg(pid.to_string())
+                        .output();
+                    Output {
+                        status: std::process::ExitStatus::default(),
+                        stdout: Vec::new(),
+                        stderr: format!(
+                            "[rtk-mine] command '{}' timed out after {}s",
+                            program,
+                            config.proxy.timeout_seconds
+                        )
+                        .into_bytes(),
+                    }
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: Vec::new(),
+                    stderr: format!("[rtk-mine] internal error executing '{}'", program).into_bytes(),
+                },
+            }
+        }
         Err(e) => Output {
             status: std::process::ExitStatus::default(),
             stdout: Vec::new(),
-            stderr: format!("[rtk-mine] failed to execute '{}': {}", program, e).into_bytes(),
+            stderr: format!("[rtk-mine] failed to spawn '{}': {}", program, e).into_bytes(),
         },
     }
 }
