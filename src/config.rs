@@ -277,6 +277,12 @@ impl Config {
 
     /// Get the resolved audit log path, validated to prevent traversal.
     pub fn audit_path(&self) -> PathBuf {
+        if let Ok(path) = std::env::var("RTK_MINE_AUDIT_LOG") {
+            if !path.is_empty() {
+                return Self::resolve_path(&path);
+            }
+        }
+
         let resolved = Self::resolve_path(&self.audit.log_path);
         // Canonicalize to resolve any `..` components and symlinks.
         // If canonicalize fails (e.g., file doesn't exist yet), use the parent dir.

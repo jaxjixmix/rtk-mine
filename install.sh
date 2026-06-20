@@ -88,11 +88,12 @@ fi
 
 if [ -w "$INSTALL_DIR" ]; then
     cp "$BINARY_PATH" "$INSTALL_DIR/$BINARY"
+    chmod +x "$INSTALL_DIR/$BINARY"
 else
     info "Need sudo to install to $INSTALL_DIR"
     sudo cp "$BINARY_PATH" "$INSTALL_DIR/$BINARY"
+    sudo chmod +x "$INSTALL_DIR/$BINARY"
 fi
-chmod +x "$INSTALL_DIR/$BINARY"
 info "Installed $BINARY to $INSTALL_DIR/$BINARY"
 "$INSTALL_DIR/$BINARY" --version
 
