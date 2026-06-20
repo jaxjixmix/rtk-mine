@@ -60,7 +60,8 @@ impl AuditEntry {
         timed_out: bool,
     ) -> Self {
         let savings_pct = if bytes_before > 0 {
-            ((bytes_before - bytes_after) as f64 / bytes_before as f64) * 100.0
+            let saved = bytes_before.saturating_sub(bytes_after);
+            (saved as f64 / bytes_before as f64) * 100.0
         } else {
             0.0
         };

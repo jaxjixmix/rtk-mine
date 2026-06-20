@@ -491,6 +491,7 @@ rtk-mine audit log --program git       # only git commands
 rtk-mine audit log --limit 50 --json   # JSON output
 rtk-mine audit stats                    # savings dashboard
 rtk-mine audit stats --json             # dashboard as JSON
+rtk-mine audit clear                    # delete all audit entries
 ```
 
 ### `rtk-mine config`

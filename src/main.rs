@@ -93,6 +93,8 @@ enum AuditAction {
         #[arg(long)]
         json: bool,
     },
+    /// Clear the audit log.
+    Clear,
 }
 
 #[derive(Subcommand)]
@@ -125,6 +127,9 @@ fn main() {
             }
             Some(AuditAction::Stats { json }) => {
                 cmd_audit_stats(json);
+            }
+            Some(AuditAction::Clear) => {
+                cmd_audit_clear();
             }
         },
         Commands::Config { action } => match action {
@@ -519,6 +524,25 @@ fn cmd_audit_stats(json: bool) {
             eprintln!("[rtk-mine] audit stats error: {}", e);
             std::process::exit(1);
         }
+    }
+}
+
+fn cmd_audit_clear() {
+    let cfg = config::Config::load();
+    let path = cfg.audit_path();
+    if path.exists() {
+        match std::fs::remove_file(&path) {
+            Ok(_) => {
+                println!("Audit log cleared: {}", path.display());
+                eprintln!("[rtk-mine] audit log deleted — fresh start");
+            }
+            Err(e) => {
+                eprintln!("[rtk-mine] failed to clear audit log: {}", e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        println!("No audit log found at {}", path.display());
     }
 }
 
