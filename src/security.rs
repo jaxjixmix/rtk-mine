@@ -56,12 +56,23 @@ static SECRET_PATTERNS: LazyLock<Vec<(Regex, &str)>> = LazyLock::new(|| {
 
 // ---- Command gate ----
 
+/// Programs that can run other commands through their arguments.
+/// e.g., `env curl ...`, `nice bash ...`, `time ssh ...`.
+const COMMAND_RUNNERS: &[&str] = &["env", "nice", "nohup", "time", "exec", "sudo", "su"];
+
+/// Scriptable interpreters — their `-c` flag can execute arbitrary code.
+const INTERPRETERS: &[&str] = &[
+    "python", "python3", "ruby", "perl", "node", "php",
+    "bash", "zsh", "sh", "fish", "lua", "tclsh",
+];
+
 /// Check whether a command should be allowed.
 pub fn check_command(
     program: &str,
+    args: &[String],
     config: &SecurityConfig,
 ) -> SecurityVerdict {
-    // 1. Deny list — absolute block.
+    // 1. Deny list — absolute block on the program itself.
     let prog_lower = program.to_lowercase();
     let base = Path::new(program)
         .file_stem()
@@ -78,7 +89,59 @@ pub fn check_command(
         }
     }
 
-    // 2. Allow list — if require_allowlist is set, only these pass.
+    // 2. Scan command-runner args against the deny list.
+    //    `env curl ...` → curl is denied → block.
+    if COMMAND_RUNNERS.contains(&base.as_str()) {
+        for arg in args {
+            let arg_base = Path::new(arg)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(arg)
+                .to_lowercase();
+            for denied in &config.deny_commands {
+                if arg_base == *denied {
+                    return SecurityVerdict::Deny(format!(
+                        "denied command '{}' invoked via '{} {}'",
+                        arg, program, arg
+                    ));
+                }
+            }
+        }
+    }
+
+    // 3. Scan interpreter `-c` arguments for dangerous patterns.
+    if INTERPRETERS.contains(&base.as_str()) {
+        let mut next_is_code = false;
+        for arg in args {
+            if arg == "-c" || arg == "-e" {
+                next_is_code = true;
+                continue;
+            }
+            if next_is_code {
+                let lower = arg.to_lowercase();
+                // Block known-dangerous calls.
+                if lower.contains("import os")
+                    || lower.contains("subprocess")
+                    || lower.contains("os.system")
+                    || lower.contains("os.popen")
+                    || lower.contains("eval(")
+                    || lower.contains("exec(")
+                    || lower.contains("__import__")
+                    || lower.contains("rm -rf")
+                    || lower.contains("; rm")
+                    || lower.contains("shutil.rmtree")
+                {
+                    return SecurityVerdict::Deny(format!(
+                        "potentially dangerous code in '{}' -c argument",
+                        program
+                    ));
+                }
+                next_is_code = false;
+            }
+        }
+    }
+
+    // 4. Allow list — if require_allowlist is set, only these pass.
     if config.require_allowlist {
         let allowed = config
             .allow_commands
@@ -209,14 +272,14 @@ mod tests {
     #[test]
     fn test_deny_list_blocks_sudo() {
         let config = SecurityConfig::default();
-        let verdict = check_command("sudo", &config);
+        let verdict = check_command("sudo", &[], &config);
         assert!(matches!(verdict, SecurityVerdict::Deny(_)));
     }
 
     #[test]
     fn test_allow_list_passes_ls() {
         let config = SecurityConfig::default();
-        let verdict = check_command("ls", &config);
+        let verdict = check_command("ls", &[], &config);
         assert!(matches!(verdict, SecurityVerdict::Allow));
     }
 }

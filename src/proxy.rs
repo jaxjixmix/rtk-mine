@@ -44,7 +44,7 @@ pub fn execute(
     let start = Instant::now();
 
     // ---- Security: command gate ----
-    let verdict = security::check_command(program, &config.security);
+    let verdict = security::check_command(program, args, &config.security);
     let (blocked, block_reason) = match &verdict {
         SecurityVerdict::Allow => (false, None),
         SecurityVerdict::Deny(reason) => (true, Some(reason.clone())),
@@ -104,8 +104,12 @@ pub fn execute(
     // ---- Execute the command ----
     let output = run_command(program, args, cwd, config);
 
-    let timed_out = output.status.code().is_none() && !output.status.success();
-    let exit_code = output.status.code();
+    // Detect timeout from our stderr message or missing exit code.
+    let our_timeout_msg = String::from_utf8_lossy(&output.stderr);
+    let timed_out = output.status.code().is_none()
+        || (our_timeout_msg.contains("[rtk-mine] command") && our_timeout_msg.contains("timed out"));
+    // Use 124 for timeout (standard), or the real exit code.
+    let exit_code = if timed_out { Some(124) } else { output.status.code() };
     let raw_stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let raw_stderr = if config.proxy.capture_stderr {
         String::from_utf8_lossy(&output.stderr).to_string()
