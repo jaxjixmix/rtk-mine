@@ -198,7 +198,16 @@ fn run_command(
     // Filter environment variables through the security module.
     let env_vars: Vec<(String, String)> = std::env::vars().collect();
     for (key, value) in security::filter_env(&env_vars, &config.security) {
-        cmd.env(key, value);
+        // Strip wrapper directory from PATH to prevent recursive loops.
+        if key.eq_ignore_ascii_case("PATH") {
+            let cleaned: Vec<&str> = value
+                .split(':')
+                .filter(|entry| !entry.contains("rtk-mine/bin"))
+                .collect();
+            cmd.env(key, cleaned.join(":"));
+        } else {
+            cmd.env(key, value);
+        }
     }
 
     // Spawn and wait with timeout.

@@ -782,6 +782,9 @@ if [ "$cmd" = "rtk-wrapper" ]; then
     echo "rtk-wrapper: symlink this as the command you want to proxy." >&2
     exit 1
 fi
+# Strip wrapper dir from PATH so the child process finds the real binary.
+PATH=$(echo "$PATH" | tr ':' '\n' | grep -v 'rtk-mine/bin' | tr '\n' ':')
+PATH="${PATH%:}"
 rtk-mine exec -- "$cmd" "$@"
 EOF
 chmod +x "$DIR/rtk-wrapper"
