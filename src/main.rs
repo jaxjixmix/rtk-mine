@@ -300,6 +300,46 @@ cargo() {
 }
 pytest() { __rtk_mine_exec pytest "$@"; }
 
+# JavaScript/Node (only proxy test/run subcommands)
+npm() {
+    case "$1" in
+        test|run) __rtk_mine_exec npm "$@" ;;
+        *) command npm "$@" ;;
+    esac
+}
+npx() {
+    case "$1" in
+        test|run) __rtk_mine_exec npx "$@" ;;
+        *) command npx "$@" ;;
+    esac
+}
+pnpm() {
+    case "$1" in
+        test|run) __rtk_mine_exec pnpm "$@" ;;
+        *) command pnpm "$@" ;;
+    esac
+}
+yarn() {
+    case "$1" in
+        test|run) __rtk_mine_exec yarn "$@" ;;
+        *) command yarn "$@" ;;
+    esac
+}
+
+# Go / Make (only proxy test subcommands)
+go() {
+    case "$1" in
+        test|vet|build) __rtk_mine_exec go "$@" ;;
+        *) command go "$@" ;;
+    esac
+}
+make() {
+    case "$1" in
+        test|check|lint) __rtk_mine_exec make "$@" ;;
+        *) command make "$@" ;;
+    esac
+}
+
 # Quick stats
 rtk-stats() { rtk-mine audit stats; }
 
@@ -361,6 +401,44 @@ cargo() {{
 }}
 pytest() {{ __rtk_mine_exec pytest "$@"; }}
 
+# JavaScript/Node (only proxy test/run subcommands)
+npm() {{
+    case "$1" in
+        test|run) __rtk_mine_exec npm "$@" ;;
+        *) command npm "$@" ;;
+    esac
+}}
+npx() {{
+    case "$1" in
+        test|run) __rtk_mine_exec npx "$@" ;;
+        *) command npx "$@" ;;
+    esac
+}}
+pnpm() {{
+    case "$1" in
+        test|run) __rtk_mine_exec pnpm "$@" ;;
+        *) command pnpm "$@" ;;
+    esac
+}}
+yarn() {{
+    case "$1" in
+        test|run) __rtk_mine_exec yarn "$@" ;;
+        *) command yarn "$@" ;;
+    esac
+}}
+go() {{
+    case "$1" in
+        test|vet|build) __rtk_mine_exec go "$@" ;;
+        *) command go "$@" ;;
+    esac
+}}
+make() {{
+    case "$1" in
+        test|check|lint) __rtk_mine_exec make "$@" ;;
+        *) command make "$@" ;;
+    esac
+}}
+
 # Quick stats
 rtk-stats() {{ rtk-mine audit stats; }}
 "#
@@ -408,6 +486,56 @@ function cargo
 end
 
 function pytest ; __rtk_mine_exec pytest $argv ; end
+
+function npm
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec npm $argv
+        case '*'
+            command npm $argv
+    end
+end
+function npx
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec npx $argv
+        case '*'
+            command npx $argv
+    end
+end
+function pnpm
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec pnpm $argv
+        case '*'
+            command pnpm $argv
+    end
+end
+function yarn
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec yarn $argv
+        case '*'
+            command yarn $argv
+    end
+end
+function go
+    switch $argv[1]
+        case test vet build
+            __rtk_mine_exec go $argv
+        case '*'
+            command go $argv
+    end
+end
+function make
+    switch $argv[1]
+        case test check lint
+            __rtk_mine_exec make $argv
+        case '*'
+            command make $argv
+    end
+end
+
 function rtk-stats ; rtk-mine audit stats ; end
 "#
     )
@@ -455,6 +583,56 @@ function cargo
 end
 
 function pytest ; __rtk_mine_exec pytest $argv ; end
+
+function npm
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec npm $argv
+        case '*'
+            command npm $argv
+    end
+end
+function npx
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec npx $argv
+        case '*'
+            command npx $argv
+    end
+end
+function pnpm
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec pnpm $argv
+        case '*'
+            command pnpm $argv
+    end
+end
+function yarn
+    switch $argv[1]
+        case test run
+            __rtk_mine_exec yarn $argv
+        case '*'
+            command yarn $argv
+    end
+end
+function go
+    switch $argv[1]
+        case test vet build
+            __rtk_mine_exec go $argv
+        case '*'
+            command go $argv
+    end
+end
+function make
+    switch $argv[1]
+        case test check lint
+            __rtk_mine_exec make $argv
+        case '*'
+            command make $argv
+    end
+end
+
 function rtk-stats ; rtk-mine audit stats ; end
 "#.to_string()
 }
