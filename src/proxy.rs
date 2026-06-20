@@ -130,7 +130,7 @@ pub fn execute(
         if config.security.redact_secrets {
             security::scan_and_redact(&filtered)
         } else {
-            SecretScan { output: filtered, secrets_found: 0, redacted: false }
+            SecretScan { output: filtered, secrets_found: 0 }
         };
 
     let bytes_after = secured.len();
@@ -181,17 +181,10 @@ fn run_command(
     cmd.args(args);
     cmd.current_dir(cwd);
 
-    // Filter environment variables.
-    for (key, value) in std::env::vars() {
-        let upper = key.to_uppercase();
-        let sensitive = config
-            .security
-            .strip_env_vars
-            .iter()
-            .any(|s| upper.contains(&s.to_uppercase()));
-        if !sensitive {
-            cmd.env(key, value);
-        }
+    // Filter environment variables through the security module.
+    let env_vars: Vec<(String, String)> = std::env::vars().collect();
+    for (key, value) in security::filter_env(&env_vars, &config.security) {
+        cmd.env(key, value);
     }
 
     match cmd.output() {

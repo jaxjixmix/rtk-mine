@@ -24,10 +24,8 @@ pub enum SecurityVerdict {
 pub struct SecretScan {
     /// The (possibly redacted) output.
     pub output: String,
-    /// Number of secrets detected.
+    /// Number of secrets detected and redacted.
     pub secrets_found: usize,
-    /// Whether any redaction was applied.
-    pub redacted: bool,
 }
 
 /// Secret patterns — compiled once.
@@ -143,7 +141,6 @@ pub fn scan_and_redact(text: &str) -> SecretScan {
     }
 
     SecretScan {
-        redacted: secrets_found > 0,
         secrets_found,
         output,
     }
@@ -182,7 +179,7 @@ mod tests {
     fn test_detect_openai_key() {
         let input = "export OPENAI_API_KEY=sk-abc123def456ghi789jkl012mno345pqr678stu";
         let result = scan_and_redact(input);
-        assert!(result.redacted);
+        assert!(result.secrets_found > 0);
         assert!(!result.output.contains("sk-abc123"));
         assert!(result.output.contains("REDACTED"));
     }
@@ -191,7 +188,7 @@ mod tests {
     fn test_detect_jwt() {
         let input = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
         let result = scan_and_redact(input);
-        assert!(result.redacted);
+        assert!(result.secrets_found > 0);
         assert!(result.output.contains("JWT REDACTED"));
     }
 
@@ -199,7 +196,7 @@ mod tests {
     fn test_no_false_positive() {
         let input = "normal git output with commit hashes abc123 and file paths";
         let result = scan_and_redact(input);
-        assert!(!result.redacted);
+        assert_eq!(result.secrets_found, 0);
         assert_eq!(result.output, input);
     }
 

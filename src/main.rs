@@ -162,14 +162,20 @@ fn cmd_exec(program: &str, args: &[String], quiet: bool) {
                 result.block_reason.as_deref().unwrap_or("unknown")
             );
         } else {
+            let mut flags = Vec::new();
+            if result.timed_out { flags.push("TIMED_OUT"); }
+            if result.truncated { flags.push("truncated"); }
+            let flag_str = if flags.is_empty() { String::new() } else { format!(" | {}", flags.join(", ")) };
+
             eprintln!(
-                "[rtk-mine] {} | {} → {} bytes ({} saved) | filter: {} | secrets: {}",
+                "[rtk-mine] {} | {} → {} bytes ({} saved) | filter: {} | secrets: {}{}",
                 program,
                 result.bytes_before,
                 result.bytes_after,
                 savings,
                 result.filter_applied,
                 result.secrets_found,
+                flag_str,
             );
         }
     }
