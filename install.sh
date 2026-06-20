@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# rtk-mine — one-command installer
-# 
-# This script detects your OS/arch, downloads the appropriate binary,
-# and installs it to /usr/local/bin (or ~/.local/bin).
+# rtk-mine — one-command installer (binary + shell hooks + config)
+#
+# Downloads/builds the binary, generates config, and sets up shell
+# integration for all coding agents in one shot.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/jaxjixmix/rtk-mine/main/install.sh | bash
 #
 # Or locally:
 #   ./install.sh
+#
+# Options:
+#   SKIP_HOOKS=1 ./install.sh   — skip shell hook installation
+#   SKIP_CONFIG=1 ./install.sh  — skip config generation
 
 set -euo pipefail
 
@@ -27,9 +31,10 @@ warn()  { echo -e "${YELLOW}⚠${RESET} $*"; }
 err()   { echo -e "${RED}✗${RESET} $*" >&2; }
 header(){ echo -e "\n${BOLD}$*${RESET}\n"; }
 
+# ── Stage 1: Install binary ────────────────────────────────────────
+
 header "rtk-mine installer"
 
-# Detect OS and architecture.
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
@@ -47,35 +52,24 @@ esac
 TARGET="${ARCH}-${OS}"
 info "Detected platform: $TARGET"
 
-# --- Check if we can build from source (preferred, since this is a Rust project) ---
 if command -v cargo &>/dev/null; then
     info "Cargo detected — building from source..."
-    
     TMPDIR=$(mktemp -d)
     trap "rm -rf $TMPDIR" EXIT
-    
-    # Clone and build.
     git clone --depth 1 "https://github.com/${REPO}.git" "$TMPDIR" 2>/dev/null || {
         warn "Cannot clone from GitHub. Building from current directory..."
         TMPDIR="$(pwd)"
     }
-    
     cd "$TMPDIR"
     cargo build --release 2>&1 | tail -3
-    
     BINARY_PATH="$TMPDIR/target/release/$BINARY"
 else
     info "Cargo not found — downloading pre-built binary..."
-    
-    # Try GitHub releases.
     VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": "\(.*\)".*/\1/' || echo "v0.1.0")
-    
     TARBALL="${BINARY}-${TARGET}.tar.gz"
     URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
-    
     TMPDIR=$(mktemp -d)
     trap "rm -rf $TMPDIR" EXIT
-    
     info "Downloading $URL..."
     curl -fsSL "$URL" -o "$TMPDIR/$TARBALL" || {
         err "Download failed. Please install Rust and build from source:"
@@ -83,12 +77,10 @@ else
         err "  cargo install --git https://github.com/${REPO}.git"
         exit 1
     }
-    
     tar xzf "$TMPDIR/$TARBALL" -C "$TMPDIR"
     BINARY_PATH="$TMPDIR/$BINARY"
 fi
 
-# Install binary.
 if [ ! -f "$BINARY_PATH" ]; then
     err "Binary not found at $BINARY_PATH"
     exit 1
@@ -100,34 +92,67 @@ else
     info "Need sudo to install to $INSTALL_DIR"
     sudo cp "$BINARY_PATH" "$INSTALL_DIR/$BINARY"
 fi
-
 chmod +x "$INSTALL_DIR/$BINARY"
-
 info "Installed $BINARY to $INSTALL_DIR/$BINARY"
+"$INSTALL_DIR/$BINARY" --version
 
-# Verify.
-"$INSTALL_DIR/$BINARY" version
+# ── Stage 2: Generate config ────────────────────────────────────────
 
-# Initialize config.
-info "Initializing default configuration..."
-"$INSTALL_DIR/$BINARY" config init
+if [ "${SKIP_CONFIG:-0}" != "1" ]; then
+    info "Generating default configuration..."
+    "$INSTALL_DIR/$BINARY" config init || warn "Config generation skipped (may need manual setup)"
+fi
 
-# Shell setup hint.
+# ── Stage 3: Shell hooks (all agents) ───────────────────────────────
+
+if [ "${SKIP_HOOKS:-0}" = "1" ]; then
+    info "Skipping shell hooks (SKIP_HOOKS=1)"
+else
+    header "Shell integration"
+    HOOK='eval "$(rtk-mine init --agent --quiet)"'
+
+    install_hook() {
+        local file="$1"
+        local label="$2"
+        if [ -f "$file" ] && grep -qF "rtk-mine init" "$file" 2>/dev/null; then
+            info "✓ already in $label ($file)"
+        else
+            echo "$HOOK" >> "$file"
+            info "+ added to $label ($file)"
+        fi
+    }
+
+    mkdir -p "$INSTALL_DIR"  # ensure dir exists for PATH check
+
+    install_hook "$HOME/.zshenv"        "zsh non-interactive (CodeWhale)"
+    install_hook "$HOME/.zshrc"         "zsh interactive (OpenCode, Claude Code)"
+    [ -f "$HOME/.bashrc" ]       && install_hook "$HOME/.bashrc"       "bash interactive"
+    [ -f "$HOME/.bash_profile" ] && install_hook "$HOME/.bash_profile" "bash login"
+
+    # BASH_ENV for bash non-interactive (Copilot, CodeWhale bash)
+    if [ ! -f "$HOME/.bashenv" ] || ! grep -qF "rtk-mine init" "$HOME/.bashenv" 2>/dev/null; then
+        echo "$HOOK" > "$HOME/.bashenv"
+        info "+ created ~/.bashenv with BASH_ENV export"
+        for rc in "$HOME/.bashrc" "$HOME/.bash_profile"; do
+            if [ -f "$rc" ] && ! grep -qF "BASH_ENV" "$rc" 2>/dev/null; then
+                echo "export BASH_ENV=\"$HOME/.bashenv\"" >> "$rc"
+            fi
+        done
+    fi
+fi
+
+# ── Stage 4: Done ───────────────────────────────────────────────────
+
 header "Setup complete!"
 echo ""
-echo "  Add this to your shell config (~/.zshrc, ~/.bashrc, or ~/.config/fish/config.fish):"
+echo "  To activate immediately in this terminal:"
 echo ""
-echo -e "    ${BOLD}eval \"\$($BINARY init)\"${RESET}"
+echo -e "    ${BOLD}source ~/.zshenv && source ~/.zshrc${RESET}"
 echo ""
-echo "  Or run it directly to test:"
+echo "  Quick test:"
 echo ""
-echo "    eval \"\$($BINARY init)\""
-echo "    ls -la          # proxied through rtk-mine"
-echo "    rtk-mine audit  # see what happened"
-echo ""
-echo "  Quick commands:"
-echo "    rtk-mine exec -- <command>   # one-off proxy"
-echo "    rtk-mine audit               # recent audit log"
-echo "    rtk-mine audit stats         # savings dashboard"
-echo "    rtk-mine config show         # current config"
+echo "    type ls                         # should show 'ls is a shell function'"
+echo "    rtk-mine exec -- ls -la         # test proxy directly"
+echo "    rtk-mine audit                  # recent audit log"
+echo "    rtk-mine audit stats            # savings dashboard"
 echo ""

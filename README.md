@@ -19,30 +19,23 @@ What makes rtk-mine different:
 
 ## Quick Start
 
-### Install
+### Install & Setup
 
 ```bash
-# Option 1: build from source (requires Rust)
-cargo install --git https://github.com/jaxjixmix/rtk-mine.git
-
-# Option 2: one-liner
+# One command — installs binary, generates config, sets up shell hooks for all agents
 curl -fsSL https://raw.githubusercontent.com/jaxjixmix/rtk-mine/main/install.sh | bash
-```
 
-### Setup
-
-```bash
-# Generate default config
+# Or build from source (requires Rust)
+cargo install --git https://github.com/jaxjixmix/rtk-mine.git
 rtk-mine config init
-
-# For interactive use (terminal)
-eval "$(rtk-mine init)"
-
-# For agent use (Claude Code, CodeWhale, Copilot, OpenCode)
-eval "$(rtk-mine init --agent --quiet)"
 ```
 
-For persistent setup, add the `eval` line to `~/.zshrc` or `~/.bashrc`.
+`install.sh` handles everything: binary installation, default config, and shell hooks for all coding agents (CodeWhale, Claude Code, Copilot, OpenCode). To skip hooks: `SKIP_HOOKS=1 ./install.sh`.
+
+After install, activate immediately:
+```bash
+source ~/.zshenv && source ~/.zshrc
+```
 
 ### Use
 
