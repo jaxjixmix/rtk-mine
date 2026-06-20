@@ -1,0 +1,19 @@
+# Rust build output
+target/
+
+# Local audit logs and fallback configs (not for distribution)
+rtk-mine-audit.log
+rtk-mine-config.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# OS-generated
+Thumbs.db
